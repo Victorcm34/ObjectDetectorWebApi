@@ -178,6 +178,45 @@ public class YoloParser : IYoloParser
 
     public IEnumerable<YoloBoundingBox> FilterBoundingBoxes(IEnumerable<YoloBoundingBox> boxes, int limit, float threshold)
     {
-        throw new NotImplementedException();
+        var sortedBoxes = boxes.Select((b,i) => new {Box = b, Index = i}).OrderByDescending(b => b.Box.Confidence).ToList();
+
+        var activeCount = sortedBoxes.Count();
+        var isActiveBoxes = new bool[activeCount];
+        var returnCount = 0;
+
+        for (int i = 0; i < activeCount; i++)
+            isActiveBoxes[i] = true;
+
+        for (int i = 0; i < sortedBoxes.Count; i++)
+        {
+            if (isActiveBoxes[i])
+            {
+                var boxA = sortedBoxes[i].Box;
+                yield return boxA;
+                returnCount++;
+                if (returnCount >= limit)
+                    break;
+                
+                for (var j = 0; j < sortedBoxes.Count; j++)
+                {
+                    if (isActiveBoxes[j])
+                    {
+                        var boxB = sortedBoxes[j].Box;
+
+                        if (IntersectionOverUnion(boxA.Rect, boxB.Rect) > threshold)
+                        {
+                            isActiveBoxes[j] = false;
+                            activeCount--;
+
+                            if (activeCount <= 0)
+                            break;
+                        }
+                    }
+                }
+                if (activeCount <= 0)
+                    break;
+            }
+        }
+
     }
 }
